@@ -49,7 +49,10 @@ def retrieve_credentials(credential_namespace, aws_region=None,
                           aws_secret_access_key=aws_secret_access_key)
     response = client.get_parameters(Names=ssmname_to_key.keys(),
                                      WithDecryption=True)
-    return _credentials_response_to_dict(ssmname_to_key, response)
+    responsedict = _credentials_response_to_dict(ssmname_to_key, response)
+    if len(responsedict) == 0:
+        raise LookupError('No credentials found for namespace:' + credential_namespace)
+    return responsedict
 
 def upload_credentials(credential_namespace, credentials_dict, kms_key_id,
                        aws_region=None, aws_access_key_id=None,
