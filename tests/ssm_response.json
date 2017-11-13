@@ -1,0 +1,36 @@
+{
+    "InvalidParameters": [], 
+    "ResponseMetadata": {
+        "RetryAttempts": 0, 
+        "HTTPStatusCode": 200, 
+        "RequestId": "af07e696-c7e8-11e7-8637-498895d7d402", 
+        "HTTPHeaders": {
+            "x-amzn-requestid": "af07e696-c7e8-11e7-8637-498895d7d402", 
+            "date": "Sun, 12 Nov 2017 20:33:03 GMT", 
+            "content-length": "563", 
+            "content-type": "application/x-amz-json-1.1"
+        }
+    }, 
+    "Parameters": [
+        {
+            "Type": "String", 
+            "Name": "test.access_token", 
+            "Value": "r_access_token"
+        }, 
+        {
+            "Type": "SecureString", 
+            "Name": "test.access_token_secret", 
+            "Value": "r_access_token_secret"
+        }, 
+        {
+            "Type": "String", 
+            "Name": "test.consumer_key", 
+            "Value": "r_consumer_key"
+        }, 
+        {
+            "Type": "SecureString", 
+            "Name": "test.consumer_secret", 
+            "Value": "r_consumer_secret"
+        }
+    ]
+}
