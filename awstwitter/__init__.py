@@ -1,6 +1,8 @@
 """This module allows securely storing and retrieving Twitter API
 credentials in AWS EC2 System manager."""
 import sys
+import argparse
+import pprint
 import boto3
 
 TWITTER_CREDENTIALS = {
@@ -22,6 +24,34 @@ TWITTER_CREDENTIALS = {
     }
 }
 SSM_NAME_SEPARATOR = '.'
+
+def manage():
+    "Process arguments to manage credentials"
+    parser = argparse.ArgumentParser(description='Manage credentials.')
+    parser.add_argument('mode', choices=['store', 'retrieve'],
+                        help='Choose mode')
+    args = parser.parse_args()
+    mode = args.mode
+    if mode == 'store':
+        add_credentials()
+    elif mode == 'retrieve':
+        retrieve()
+
+def retrieve():
+    "Retrieve credentials"
+    namespace = input("Please enter namespace: ")
+    pprint.pprint(retrieve_credentials(namespace))
+
+def add_credentials():
+    "Store credentials into EC2 Systems manager"
+    namespace = input('Please enter namespace: ')
+    credentials_dict = {}
+    key_id = input('Enter KMS key id (blank to create one): ')
+    for key in TWITTER_CREDENTIALS:
+        description = TWITTER_CREDENTIALS[key]['Description']
+        value = input('Please enter ' + description + ': ')
+        credentials_dict[key] = value
+    upload_credentials(namespace, credentials_dict)
 
 def retrieve_credentials(credential_namespace, aws_region=None,
                          aws_access_key_id=None, aws_secret_access_key=None):
@@ -47,16 +77,16 @@ def retrieve_credentials(credential_namespace, aws_region=None,
     client = boto3.client('ssm', region_name=aws_region,
                           aws_access_key_id=aws_access_key_id,
                           aws_secret_access_key=aws_secret_access_key)
-    response = client.get_parameters(Names=ssmname_to_key.keys(),
+    response = client.get_parameters(Names=list(ssmname_to_key.keys()),
                                      WithDecryption=True)
     responsedict = _credentials_response_to_dict(ssmname_to_key, response)
-    if len(responsedict) == 0:
+    if not responsedict:
         raise LookupError('No credentials found for namespace:' + credential_namespace)
     return responsedict
 
-def upload_credentials(credential_namespace, credentials_dict, kms_key_id,
-                       aws_region=None, aws_access_key_id=None,
-                       aws_secret_access_key=None):
+def upload_credentials(credential_namespace, credentials_dict,
+                       kms_key_id=None, aws_region=None,
+                       aws_access_key_id=None, aws_secret_access_key=None):
     """Save Twitter credentials securely into EC2 system manager.
 
     Credentials are retrieved from AWS EC2 System manager.
@@ -81,6 +111,10 @@ def upload_credentials(credential_namespace, credentials_dict, kms_key_id,
         ~/.aws/credentials
     """
     ssmname_to_key = _make_ssmname_to_key_map(credential_namespace)
+    if not kms_key_id:
+        kms = boto3.client('kms')
+        kms_key_id = kms.create_key()['KeyMetadata']['KeyId']
+        print('Created key: %s' % kms_key_id)
     client = boto3.client(service_name='ssm', region_name=aws_region,
                           aws_access_key_id=aws_access_key_id,
                           aws_secret_access_key=aws_secret_access_key)
@@ -88,9 +122,14 @@ def upload_credentials(credential_namespace, credentials_dict, kms_key_id,
         credential_details = TWITTER_CREDENTIALS[key]
         description = credential_details['Description']
         param_type = credential_details['Type']
-        key_id = kms_key_id if (param_type == 'SecureString') else None
-        client.put_parameter(ssmname, description, credentials_dict[key],
-                             param_type, key_id, True)
+        if (param_type == 'SecureString'):
+            client.put_parameter(Name=ssmname, Description=description,
+                                 Value=credentials_dict[key], Type=param_type,
+                                 Overwrite=True, KeyId=kms_key_id)
+        else :
+            client.put_parameter(Name=ssmname, Description=description,
+                                 Value=credentials_dict[key], Type=param_type,
+                                 Overwrite=True)
 
 def _make_ssmname_to_key_map(credential_prefix):
     ssmname_to_key = {}
@@ -106,3 +145,6 @@ def _credentials_response_to_dict(ssmname_to_key, response):
         key = ssmname_to_key[credential['Name']]
         responsedict[key] = credential['Value']
     return responsedict
+
+if __name__ == "__main__":
+    manage()
